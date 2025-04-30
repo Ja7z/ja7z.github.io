@@ -1,4 +1,4 @@
-/*! elementor-pro - v3.10.2 - 17-01-2023 */
+/*! elementor-pro - v3.26.0 - 22-12-2024 */
 (self["webpackChunkelementor_pro"] = self["webpackChunkelementor_pro"] || []).push([["frontend"],{
 
 /***/ "../assets/dev/js/frontend/frontend.js":
@@ -18,11 +18,14 @@ var _frontend3 = _interopRequireDefault(__webpack_require__(/*! ../../../../modu
 var _frontend4 = _interopRequireDefault(__webpack_require__(/*! ../../../../modules/video-playlist/assets/js/frontend/frontend */ "../modules/video-playlist/assets/js/frontend/frontend.js"));
 var _frontend5 = _interopRequireDefault(__webpack_require__(/*! ../../../../modules/payments/assets/js/frontend/frontend */ "../modules/payments/assets/js/frontend/frontend.js"));
 var _frontend6 = _interopRequireDefault(__webpack_require__(/*! ../../../../modules/progress-tracker/assets/js/frontend/frontend */ "../modules/progress-tracker/assets/js/frontend/frontend.js"));
+var _controls = _interopRequireDefault(__webpack_require__(/*! ./utils/controls */ "../assets/dev/js/frontend/utils/controls.js"));
+var _dropdownMenuHeightController = _interopRequireDefault(__webpack_require__(/*! ./utils/dropdown-menu-height-controller */ "../assets/dev/js/frontend/utils/dropdown-menu-height-controller.js"));
 class ElementorProFrontend extends elementorModules.ViewModule {
   onInit() {
     super.onInit();
     this.config = ElementorProFrontendConfig;
     this.modules = {};
+    this.initOnReadyComponents();
   }
   bindEvents() {
     jQuery(window).on('elementor/frontend/init', this.onElementorFrontendInit.bind(this));
@@ -39,10 +42,6 @@ class ElementorProFrontend extends elementorModules.ViewModule {
     };
 
     // Keep this line before applying filter on the handlers.
-    // TODO: BC - Deprecated since 3.7.0
-    elementorProFrontend.trigger('elementor-pro/modules/init:before');
-
-    // TODO: Use this instead.
     elementorProFrontend.trigger('elementor-pro/modules/init/before');
     handlers = elementorFrontend.hooks.applyFilters('elementor-pro/frontend/handlers', handlers);
     jQuery.each(handlers, (moduleName, ModuleClass) => {
@@ -59,8 +58,180 @@ class ElementorProFrontend extends elementorModules.ViewModule {
   onElementorFrontendInit() {
     this.initModules();
   }
+  initOnReadyComponents() {
+    this.utils = {
+      controls: new _controls.default(),
+      DropdownMenuHeightController: _dropdownMenuHeightController.default
+    };
+  }
 }
 window.elementorProFrontend = new ElementorProFrontend();
+
+/***/ }),
+
+/***/ "../assets/dev/js/frontend/utils/controls.js":
+/*!***************************************************!*\
+  !*** ../assets/dev/js/frontend/utils/controls.js ***!
+  \***************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+class Controls {
+  /**
+   * Get Control Value
+   *
+   * Retrieves a control value.
+   * This function has been copied from `elementor/assets/dev/js/editor/utils/conditions.js`.
+   *
+   * @since 3.11.0
+   *
+   * @param {{}}     controlSettings A settings object (e.g. element settings - keys and values)
+   * @param {string} controlKey      The control key name
+   * @param {string} controlSubKey   A specific property of the control object.
+   * @return {*} Control Value
+   */
+  getControlValue(controlSettings, controlKey, controlSubKey) {
+    let value;
+    if ('object' === typeof controlSettings[controlKey] && controlSubKey) {
+      value = controlSettings[controlKey][controlSubKey];
+    } else {
+      value = controlSettings[controlKey];
+    }
+    return value;
+  }
+
+  /**
+   * Get the value of a responsive control.
+   *
+   * Retrieves the value of a responsive control for the current device or for this first parent device which has a control value.
+   *
+   * @since 3.11.0
+   *
+   * @param {{}}     controlSettings A settings object (e.g. element settings - keys and values)
+   * @param {string} controlKey      The control key name
+   * @param {string} controlSubKey   A specific property of the control object.
+   * @return {*} Control Value
+   */
+  getResponsiveControlValue(controlSettings, controlKey) {
+    let controlSubKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+    const currentDeviceMode = elementorFrontend.getCurrentDeviceMode(),
+      controlValueDesktop = this.getControlValue(controlSettings, controlKey, controlSubKey);
+
+    // Set the control value for the current device mode.
+    // First check the widescreen device mode.
+    if ('widescreen' === currentDeviceMode) {
+      const controlValueWidescreen = this.getControlValue(controlSettings, `${controlKey}_widescreen`, controlSubKey);
+      return !!controlValueWidescreen || 0 === controlValueWidescreen ? controlValueWidescreen : controlValueDesktop;
+    }
+
+    // Loop through all responsive and desktop device modes.
+    const activeBreakpoints = elementorFrontend.breakpoints.getActiveBreakpointsList({
+      withDesktop: true
+    });
+    let parentDeviceMode = currentDeviceMode,
+      deviceIndex = activeBreakpoints.indexOf(currentDeviceMode),
+      controlValue = '';
+    while (deviceIndex <= activeBreakpoints.length) {
+      if ('desktop' === parentDeviceMode) {
+        controlValue = controlValueDesktop;
+        break;
+      }
+      const responsiveControlKey = `${controlKey}_${parentDeviceMode}`,
+        responsiveControlValue = this.getControlValue(controlSettings, responsiveControlKey, controlSubKey);
+      if (!!responsiveControlValue || 0 === responsiveControlValue) {
+        controlValue = responsiveControlValue;
+        break;
+      }
+
+      // If no control value has been set for the current device mode, then check the parent device mode.
+      deviceIndex++;
+      parentDeviceMode = activeBreakpoints[deviceIndex];
+    }
+    return controlValue;
+  }
+}
+exports["default"] = Controls;
+
+/***/ }),
+
+/***/ "../assets/dev/js/frontend/utils/dropdown-menu-height-controller.js":
+/*!**************************************************************************!*\
+  !*** ../assets/dev/js/frontend/utils/dropdown-menu-height-controller.js ***!
+  \**************************************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+class DropdownMenuHeightController {
+  constructor(widgetConfig) {
+    this.widgetConfig = widgetConfig;
+  }
+  calculateStickyMenuNavHeight() {
+    this.widgetConfig.elements.$dropdownMenuContainer.css(this.widgetConfig.settings.menuHeightCssVarName, '');
+    const menuToggleHeight = this.widgetConfig.elements.$dropdownMenuContainer.offset().top - jQuery(window).scrollTop();
+    return elementorFrontend.elements.$window.height() - menuToggleHeight;
+  }
+  calculateMenuTabContentHeight($tab) {
+    return elementorFrontend.elements.$window.height() - $tab[0].getBoundingClientRect().top;
+  }
+  isElementSticky() {
+    return this.widgetConfig.elements.$element.hasClass('elementor-sticky') || this.widgetConfig.elements.$element.parents('.elementor-sticky').length;
+  }
+  getMenuHeight() {
+    return this.isElementSticky() ? this.calculateStickyMenuNavHeight() + 'px' : this.widgetConfig.settings.dropdownMenuContainerMaxHeight;
+  }
+  setMenuHeight(menuHeight) {
+    this.widgetConfig.elements.$dropdownMenuContainer.css(this.widgetConfig.settings.menuHeightCssVarName, menuHeight);
+  }
+  reassignMobileMenuHeight() {
+    const menuHeight = this.isToggleActive() ? this.getMenuHeight() : 0;
+    return this.setMenuHeight(menuHeight);
+  }
+  reassignMenuHeight($activeTabContent) {
+    if (!this.isElementSticky() || 0 === $activeTabContent.length) {
+      return;
+    }
+    const offsetBottom = elementorFrontend.elements.$window.height() - $activeTabContent[0].getBoundingClientRect().top,
+      isContentHeightBiggerThanWindow = $activeTabContent.height() > offsetBottom;
+    if (!isContentHeightBiggerThanWindow) {
+      return;
+    }
+    $activeTabContent.css('height', this.calculateMenuTabContentHeight($activeTabContent) + 'px');
+    $activeTabContent.css('overflow-y', 'scroll');
+  }
+  resetMenuHeight($activeTabContent) {
+    if (!this.isElementSticky()) {
+      return;
+    }
+    $activeTabContent.css('height', 'initial');
+    $activeTabContent.css('overflow-y', 'visible');
+  }
+  isToggleActive() {
+    const $menuToggle = this.widgetConfig.elements.$menuToggle;
+
+    // New approach.
+    // Aria attributes instead of css classes.
+    if (!!this.widgetConfig.attributes?.menuToggleState) {
+      return 'true' === $menuToggle.attr(this.widgetConfig.attributes.menuToggleState);
+    }
+
+    // This can be removed once the new markup of the Mega Menu has been implemented.
+    // Previously we used state classes to indicate the active state of the menu toggle.
+    return $menuToggle.hasClass(this.widgetConfig.classes.menuToggleActiveClass);
+  }
+}
+exports["default"] = DropdownMenuHeightController;
 
 /***/ }),
 
@@ -155,8 +326,12 @@ class _default extends elementorModules.frontend.handlers.Base {
   }
   getDefaultElements() {
     const selectors = this.getSettings('selectors');
+    let container = this.$element.find(selectors.container);
+    if (0 === container.length) {
+      container = this.$element;
+    }
     return {
-      $container: this.$element.find(selectors.container)
+      $container: container
     };
   }
   bindEvents() {
@@ -246,17 +421,19 @@ class _default extends elementorModules.frontend.handlers.Base {
       effect.actions.forEach(action => interactions[interactionName][action] = options);
     });
     let $element = this.$element,
-      $dimensionsElement;
+      $dimensionsElement,
+      $childElement;
     const elementType = this.getElementType();
     if ('element' === type && !['section', 'container'].includes(elementType)) {
       $dimensionsElement = $element;
       let childElementSelector;
       if ('column' === elementType) {
-        childElementSelector = elementorFrontend.config.legacyMode.elementWrappers ? '.elementor-column-wrap' : '.elementor-widget-wrap';
+        childElementSelector = '.elementor-widget-wrap';
       } else {
         childElementSelector = '.elementor-widget-container';
       }
-      $element = $element.find('> ' + childElementSelector);
+      $childElement = $element.find('> ' + childElementSelector);
+      $element = 0 === $childElement.length ? this.$element : $childElement;
     }
     const options = {
       type,
@@ -588,25 +765,16 @@ exports["default"] = _default;
 /*!******************************************************************************!*\
   !*** ../modules/motion-fx/assets/js/frontend/motion-fx/interactions/base.js ***!
   \******************************************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime/helpers/interopRequireDefault */ "../node_modules/@babel/runtime/helpers/interopRequireDefault.js");
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
 exports["default"] = void 0;
-var _defineProperty2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/defineProperty */ "../node_modules/@babel/runtime/helpers/defineProperty.js"));
 class _default extends elementorModules.ViewModule {
-  constructor() {
-    super(...arguments);
-    (0, _defineProperty2.default)(this, "onInsideViewport", () => {
-      this.run();
-      this.animationFrameRequest = requestAnimationFrame(this.onInsideViewport);
-    });
-  }
   __construct(options) {
     this.motionFX = options.motionFX;
     if (!this.intersectionObservers) {
@@ -628,6 +796,10 @@ class _default extends elementorModules.ViewModule {
     const observedElement = 'page' === this.motionFX.getSettings('range') ? elementorFrontend.elements.$body[0] : this.motionFX.elements.$parent[0];
     this.intersectionObserver.observe(observedElement);
   }
+  onInsideViewport = () => {
+    this.run();
+    this.animationFrameRequest = requestAnimationFrame(this.onInsideViewport);
+  };
   runCallback() {
     const callback = this.getSettings('callback');
     callback(...arguments);
@@ -967,7 +1139,7 @@ class _default extends elementorModules.Module {
   constructor() {
     super();
     elementorFrontend.elementsHandler.attachHandler('paypal-button', () => __webpack_require__.e(/*! import() | paypal-button */ "paypal-button").then(__webpack_require__.bind(__webpack_require__, /*! ./handlers/paypal-button */ "../modules/payments/assets/js/frontend/handlers/paypal-button.js")));
-    elementorFrontend.elementsHandler.attachHandler('stripe-button', () => __webpack_require__.e(/*! import() | stripe-button */ "stripe-button").then(__webpack_require__.bind(__webpack_require__, /*! ./handlers/stripe-button */ "../modules/payments/assets/js/frontend/handlers/stripe-button.js")));
+    elementorFrontend.elementsHandler.attachHandler('stripe-button', () => Promise.all(/*! import() | stripe-button */[__webpack_require__.e("vendors-node_modules_dompurify_dist_purify_js"), __webpack_require__.e("stripe-button")]).then(__webpack_require__.bind(__webpack_require__, /*! ./handlers/stripe-button */ "../modules/payments/assets/js/frontend/handlers/stripe-button.js")));
   }
 }
 exports["default"] = _default;
@@ -1028,7 +1200,7 @@ exports["default"] = _default;
 /*!***************************************************************!*\
   !*** ../modules/sticky/assets/js/frontend/handlers/sticky.js ***!
   \***************************************************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
@@ -1037,7 +1209,8 @@ Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
 exports["default"] = void 0;
-var _default = elementorModules.frontend.handlers.Base.extend({
+var _utils = __webpack_require__(/*! elementor-frontend/utils/utils */ "../../elementor/assets/dev/js/frontend/utils/utils.js");
+var _default = exports["default"] = elementorModules.frontend.handlers.Base.extend({
   currentConfig: {},
   debouncedReactivate: null,
   bindEvents() {
@@ -1084,6 +1257,7 @@ var _default = elementorModules.frontend.handlers.Base.extend({
           spacer: 'elementor-sticky__spacer'
         },
         isRTL: elementorFrontend.config.is_rtl,
+        isScrollSnapActive: (0, _utils.isScrollSnapActive)(),
         // In edit mode, since the preview is an iframe, the scrollbar is on the left. The scrollbar width is
         // compensated for in this case.
         handleScrollbarWidth: elementorFrontend.isEditMode()
@@ -1096,8 +1270,7 @@ var _default = elementorModules.frontend.handlers.Base.extend({
 
     // The `stickyOptions.parent` value should only be applied to inner elements, and not to top level containers.
     if (elementSettings.sticky_parent && !isParentContainer) {
-      // TODO: The e-container classes should be removed in the next update.
-      stickyOptions.parent = '.e-container, .e-container__inner, .e-con, .e-con-inner, .elementor-widget-wrap';
+      stickyOptions.parent = '.e-con, .e-con-inner, .elementor-widget-wrap';
     }
     return stickyOptions;
   },
@@ -1190,15 +1363,12 @@ var _default = elementorModules.frontend.handlers.Base.extend({
    * @return {boolean} Is the passed element a container.
    */
   isContainerElement(element) {
-    const containerClasses = [
-    // TODO: The e-container classes should be removed in the next update.
-    'e-container', 'e-container__inner', 'e-con', 'e-con-inner'];
+    const containerClasses = ['e-con', 'e-con-inner'];
     return containerClasses.some(containerClass => {
       return element?.classList.contains(containerClass);
     });
   }
 });
-exports["default"] = _default;
 
 /***/ }),
 
@@ -1235,26 +1405,38 @@ exports["default"] = _default;
 
 /***/ }),
 
-/***/ "../node_modules/@babel/runtime/helpers/defineProperty.js":
-/*!****************************************************************!*\
-  !*** ../node_modules/@babel/runtime/helpers/defineProperty.js ***!
-  \****************************************************************/
-/***/ ((module) => {
+/***/ "../../elementor/assets/dev/js/frontend/utils/utils.js":
+/*!*************************************************************!*\
+  !*** ../../elementor/assets/dev/js/frontend/utils/utils.js ***!
+  \*************************************************************/
+/***/ ((__unused_webpack_module, exports) => {
 
-function _defineProperty(obj, key, value) {
-  if (key in obj) {
-    Object.defineProperty(obj, key, {
-      value: value,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    });
-  } else {
-    obj[key] = value;
-  }
-  return obj;
-}
-module.exports = _defineProperty, module.exports.__esModule = true, module.exports["default"] = module.exports;
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports.isScrollSnapActive = exports.escapeHTML = void 0;
+// Escape HTML special chars to prevent XSS.
+const escapeHTML = str => {
+  const specialChars = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  };
+  return str.replace(/[&<>'"]/g, tag => specialChars[tag] || tag);
+};
+
+// Check if Scroll-Snap is active.
+exports.escapeHTML = escapeHTML;
+const isScrollSnapActive = () => {
+  const scrollSnapStatus = elementorFrontend.isEditMode() ? elementor.settings.page.model.attributes?.scroll_snap : elementorFrontend.config.settings.page?.scroll_snap;
+  return 'yes' === scrollSnapStatus ? true : false;
+};
+exports.isScrollSnapActive = isScrollSnapActive;
 
 /***/ }),
 

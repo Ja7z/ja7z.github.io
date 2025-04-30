@@ -1,4 +1,4 @@
-/*! elementor-pro - v3.10.2 - 17-01-2023 */
+/*! elementor-pro - v3.26.0 - 22-12-2024 */
 /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
@@ -72,7 +72,6 @@
 /******/ 	}
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 /*!******************************!*\
